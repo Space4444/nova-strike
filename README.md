@@ -1,3 +1,5 @@
+###### (This is a simple test of Claude Fable 5, which is already capable of making games better than those I have been working on for months/years)
+
 # Nova Strike — 2D Space Shooter
 
 Endless single-player survival shooter in deep space. Built with React + TypeScript + HTML5 Canvas. No backend, no accounts — everything runs in the browser.
