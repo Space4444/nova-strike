@@ -1,10 +1,13 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { GamePage } from "./pages/GamePage";
 import "./index.css";
+import { GamePage } from "./pages/GamePage";
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <GamePage />
-  </StrictMode>,
-);
+const rootEl = document.getElementById("root");
+if (rootEl) {
+  createRoot(rootEl).render(
+    <StrictMode>
+      <GamePage />
+    </StrictMode>,
+  );
+}

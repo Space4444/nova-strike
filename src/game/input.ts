@@ -4,6 +4,8 @@ export class Input {
   mouseY = 0;
   mouseDown = false;
   pausePressed = false;
+  abilityPressed = false;
+  weaponPressed: number | null = null;
 
   private canvas: HTMLCanvasElement;
   private listeners: Array<[EventTarget, string, EventListener]> = [];
@@ -14,6 +16,10 @@ export class Input {
       const ke = e as KeyboardEvent;
       this.keys.add(ke.code);
       if (ke.code === "Escape" || ke.code === "KeyP") this.pausePressed = true;
+      if (ke.code === "Space" && !ke.repeat) this.abilityPressed = true;
+      if (ke.code === "Digit1") this.weaponPressed = 0;
+      if (ke.code === "Digit2") this.weaponPressed = 1;
+      if (ke.code === "Digit3") this.weaponPressed = 2;
       // Prevent page scroll on space/arrows
       if (
         ["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(
@@ -68,6 +74,18 @@ export class Input {
     const p = this.pausePressed;
     this.pausePressed = false;
     return p;
+  }
+
+  consumeAbility(): boolean {
+    const p = this.abilityPressed;
+    this.abilityPressed = false;
+    return p;
+  }
+
+  consumeWeapon(): number | null {
+    const w = this.weaponPressed;
+    this.weaponPressed = null;
+    return w;
   }
 
   destroy() {

@@ -1,1 +1,0 @@
-{"root":["./src/main.tsx","./src/vite-env.d.ts","./src/game/enemies.ts","./src/game/game.ts","./src/game/hud.ts","./src/game/input.ts","./src/game/particles.ts","./src/game/player.ts","./src/game/projectiles.ts","./src/game/starfield.ts","./src/game/types.ts","./src/game/upgrades.ts","./src/pages/gamepage.tsx"],"version":"5.9.3"}

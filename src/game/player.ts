@@ -1,10 +1,21 @@
 import type { Input } from "./input";
 import type { ParticleSystem } from "./particles";
-import type { PlayerStats } from "./types";
+import { SHIP_CLASSES } from "./ships";
+import { drawSprite, getPlayerSprite } from "./sprites";
+import type { PlayerStats, ShipClassId } from "./types";
 import { clamp } from "./types";
 import { baseStats } from "./upgrades";
 
 const ACCEL = 6.5; // how quickly velocity approaches target (per second)
+const SHIELD_REGEN_DELAY = 5;
+const SHIELD_REGEN_RATE = 0.25; // fraction of max per second
+
+const ENGINE_COLORS: Record<ShipClassId, string[]> = {
+  fighter: ["#38bdf8", "#818cf8", "#22d3ee"],
+  interceptor: ["#a78bfa", "#c4b5fd", "#f0abfc"],
+  gunship: ["#fb923c", "#fdba74", "#fbbf24"],
+  explorer: ["#34d399", "#6ee7b7", "#a7f3d0"],
+};
 
 export class Player {
   x = 0;
@@ -13,11 +24,16 @@ export class Player {
   vy = 0;
   aimAngle = 0;
   radius = 14;
+  ship: ShipClassId = "fighter";
   stats: PlayerStats = baseStats();
   health = this.stats.maxHealth;
+  shield = 0;
+  shieldRegenTimer = 0;
   fireCooldown = 0;
   invulnTimer = 0;
   engineEmitTimer = 0;
+  /** Speed multiplier from abilities (Recon Pulse, Overdrive etc). */
+  speedBoost = 1;
 
   update(
     dt: number,
@@ -28,8 +44,9 @@ export class Player {
   ) {
     // Movement: velocity eases toward desired direction * moveSpeed
     const axis = input.axis();
-    const targetVx = axis.x * this.stats.moveSpeed;
-    const targetVy = axis.y * this.stats.moveSpeed;
+    const speedStat = this.stats.moveSpeed * this.speedBoost;
+    const targetVx = axis.x * speedStat;
+    const targetVy = axis.y * speedStat;
     const ease = 1 - Math.exp(-ACCEL * dt);
     this.vx += (targetVx - this.vx) * ease;
     this.vy += (targetVy - this.vy) * ease;
@@ -48,6 +65,17 @@ export class Player {
       this.stats.maxHealth,
     );
 
+    // Shield regen (after delay)
+    if (this.stats.shieldMax > 0) {
+      if (this.shieldRegenTimer > 0) this.shieldRegenTimer -= dt;
+      else if (this.shield < this.stats.shieldMax) {
+        this.shield = Math.min(
+          this.stats.shieldMax,
+          this.shield + this.stats.shieldMax * SHIELD_REGEN_RATE * dt,
+        );
+      }
+    }
+
     if (this.fireCooldown > 0) this.fireCooldown -= dt;
     if (this.invulnTimer > 0) this.invulnTimer -= dt;
 
@@ -65,7 +93,7 @@ export class Player {
           speed: 60,
           life: 0.35,
           size: 2.2,
-          colors: ["#38bdf8", "#818cf8", "#22d3ee"],
+          colors: ENGINE_COLORS[this.ship],
           spread: 0.9,
           baseAngle: Math.atan2(-this.vy, -this.vx),
         });
@@ -73,55 +101,55 @@ export class Player {
     }
   }
 
-  /** Returns true if damage was applied (not invulnerable). */
+  /** Returns true if hull damage was applied (not invulnerable). */
   takeDamage(amount: number): boolean {
     if (this.invulnTimer > 0) return false;
+    this.shieldRegenTimer = SHIELD_REGEN_DELAY;
+    if (this.shield > 0) {
+      this.shield -= amount;
+      if (this.shield >= 0) {
+        this.invulnTimer = 0.2;
+        return false;
+      }
+      amount = -this.shield;
+      this.shield = 0;
+    }
     this.health -= amount;
     this.invulnTimer = 0.35;
     return true;
   }
 
-  draw(ctx: CanvasRenderingContext2D, camX: number, camY: number) {
+  draw(
+    ctx: CanvasRenderingContext2D,
+    camX: number,
+    camY: number,
+    time: number,
+  ) {
     const sx = this.x - camX;
     const sy = this.y - camY;
 
-    ctx.save();
-    ctx.translate(sx, sy);
-    ctx.rotate(this.aimAngle);
-
     const flicker =
       this.invulnTimer > 0 && Math.floor(this.invulnTimer * 20) % 2 === 0;
-    ctx.globalAlpha = flicker ? 0.35 : 1;
+    const sprite = getPlayerSprite(this.ship);
+    const scale = (this.radius * 2) / (sprite.size * 0.55);
+    drawSprite(ctx, sprite, sx, sy, this.aimAngle, scale, flicker ? 0.35 : 1);
 
-    // Glow
-    ctx.shadowColor = "#38bdf8";
-    ctx.shadowBlur = 16;
-
-    // Hull
-    const r = this.radius;
-    ctx.beginPath();
-    ctx.moveTo(r * 1.25, 0);
-    ctx.lineTo(-r * 0.85, r * 0.8);
-    ctx.lineTo(-r * 0.45, 0);
-    ctx.lineTo(-r * 0.85, -r * 0.8);
-    ctx.closePath();
-    const grad = ctx.createLinearGradient(-r, 0, r, 0);
-    grad.addColorStop(0, "#0ea5e9");
-    grad.addColorStop(1, "#e0f2fe");
-    ctx.fillStyle = grad;
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = "#7dd3fc";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
-    // Cockpit
-    ctx.beginPath();
-    ctx.arc(r * 0.25, 0, r * 0.28, 0, Math.PI * 2);
-    ctx.fillStyle = "#fef9c3";
-    ctx.fill();
-
-    ctx.restore();
-    ctx.globalAlpha = 1;
+    // Shield bubble
+    if (this.shield > 0 && this.stats.shieldMax > 0) {
+      const frac = this.shield / this.stats.shieldMax;
+      ctx.globalAlpha = 0.18 + 0.3 * frac;
+      ctx.strokeStyle = SHIP_CLASSES[this.ship].color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(
+        sx,
+        sy,
+        this.radius * 1.9 + Math.sin(time * 5) * 1.5,
+        0,
+        Math.PI * 2,
+      );
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
   }
 }
