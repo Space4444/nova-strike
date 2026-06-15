@@ -1,4 +1,4 @@
-###### (This is a simple test of Claude Fable 5, which is already capable of making games better than those I have been working on for months/years)
+> This is a simple test of Claude Fable 5, which is already capable of making games better than those I have been working on for months/years
 
 # Nova Strike 3.0 🚀
 
